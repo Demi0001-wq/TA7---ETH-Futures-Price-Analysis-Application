@@ -1,0 +1,28 @@
+# Python stuff
+__pycache__/
+*.py[cod]
+*$py.class
+vcl/
+venv/
+.env
+
+# Databases and state
+data/*.db
+data/*.json
+test_final.db
+manual_final.db
+
+# Testing and coverage
+.pytest_cache/
+.coverage
+coverage.json
+htmlcov/
+
+# Logs
+*.log
+
+# Docker
+.docker_cache/
+
+# Documentation (requested to exclude)
+thesis/

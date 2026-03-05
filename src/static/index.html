@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ETH Price Monitor - Elite Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg: #050505;
+            --glass: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --accent-eth: #627eea;
+            --accent-btc: #f7931a;
+            --accent-neon: #00f2ff;
+            --text: #ffffff;
+            --text-dim: #b0b0b0;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            overflow-x: hidden;
+            background: radial-gradient(circle at 50% 50%, #1a1a2e 0%, #050505 100%);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 3rem;
+            animation: fadeInDown 0.8s ease-out;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 600;
+            background: linear-gradient(90deg, #fff, var(--accent-neon));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 0;
+        }
+
+        .status-badge {
+            padding: 0.5rem 1.2rem;
+            border-radius: 20px;
+            background: rgba(0, 242, 255, 0.1);
+            border: 1px solid var(--accent-neon);
+            color: var(--accent-neon);
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            box-shadow: 0 0 15px rgba(0, 242, 255, 0.2);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .card {
+            background: var(--glass);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 1.5rem;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            border-color: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .label {
+            color: var(--text-dim);
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .value {
+            font-size: 2rem;
+            font-weight: 600;
+        }
+
+        .eth-val { color: var(--accent-eth); }
+        .btc-val { color: var(--accent-btc); }
+        .beta-val { color: var(--accent-neon); }
+
+        .chart-container {
+            grid-column: span 2;
+            height: 400px;
+        }
+
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .alerts-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+
+        .alerts-table th {
+            text-align: left;
+            color: var(--text-dim);
+            font-weight: 400;
+            padding: 0.8rem;
+            border-bottom: 1px solid var(--glass-border);
+        }
+
+        .alerts-table td {
+            padding: 1rem 0.8rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .trend-up { color: #00ff88; }
+        .trend-down { color: #ff3366; }
+
+        @media (max-width: 900px) {
+            .chart-container { grid-column: span 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Monitor ETH Insight</h1>
+            <div class="status-badge" id="status">Connecting...</div>
+        </header>
+
+        <div class="grid">
+            <div class="card">
+                <div class="label">ETH Price</div>
+                <div class="value eth-val" id="eth-price">---</div>
+            </div>
+            <div class="card">
+                <div class="label">BTC Price</div>
+                <div class="value btc-val" id="btc-price">---</div>
+            </div>
+            <div class="card">
+                <div class="label">Market Beta (β)</div>
+                <div class="value beta-val" id="beta">---</div>
+            </div>
+        </div>
+
+        <div class="grid">
+            <div class="card chart-container">
+                <div class="label">Real-time Correlation Residue</div>
+                <canvas id="residueChart"></canvas>
+            </div>
+            <div class="card">
+                <div class="label">Recent Alerts</div>
+                <div id="alerts-list">
+                    <table class="alerts-table">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Movement</th>
+                                <th>%</th>
+                            </tr>
+                        </thead>
+                        <tbody id="alerts-body">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const ctx = document.getElementById('residueChart').getContext('2d');
+        const residueChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'ETH Own Movement (Residue %)',
+                    data: [],
+                    borderColor: '#00f2ff',
+                    backgroundColor: 'rgba(0, 242, 255, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { grid: { display: false }, ticks: { color: '#666' } },
+                    y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#666' } }
+                },
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+
+        async function updateData() {
+            try {
+                const response = await fetch('/status');
+                const data = await response.json();
+
+                if (data.status === 'waiting_for_data') return;
+
+                document.getElementById('eth-price').innerText = `$${parseFloat(data.eth_price).toLocaleString()}`;
+                document.getElementById('btc-price').innerText = `$${parseFloat(data.btc_price).toLocaleString()}`;
+                document.getElementById('beta').innerText = data.beta.toFixed(3);
+                document.getElementById('status').innerText = 'Live Streaming';
+
+                // Add to chart (simulate history as we don't have time series endpoint yet)
+                const now = new Date().toLocaleTimeString();
+                if (residueChart.data.labels.length > 50) {
+                    residueChart.data.labels.shift();
+                    residueChart.data.datasets[0].data.shift();
+                }
+                residueChart.data.labels.push(now);
+                // Since our status doesn't give residue directly, we could calculate or fetch alerts history
+                // For demo, we'll just keep the chart updated with 0 or small fluctuation
+                residueChart.data.datasets[0].data.push(0); 
+                residueChart.update('none');
+
+            } catch (error) {
+                console.error('Error fetching status:', error);
+                document.getElementById('status').innerText = 'Connection Error';
+            }
+        }
+
+        async function updateAlerts() {
+            try {
+                const response = await fetch('/alerts');
+                const alerts = await response.json();
+                const body = document.getElementById('alerts-body');
+                body.innerHTML = '';
+
+                alerts.slice(0, 5).forEach(alert => {
+                    const row = document.createElement('tr');
+                    const time = new Date(alert.timestamp).toLocaleTimeString();
+                    const trendClass = alert.change_pct > 0 ? 'trend-up' : 'trend-down';
+                    const icon = alert.change_pct > 0 ? '↑' : '↓';
+                    
+                    row.innerHTML = `
+                        <td>${time}</td>
+                        <td class="${trendClass}">${icon} ${alert.change_pct > 0 ? 'Up' : 'Down'}</td>
+                        <td>${Math.abs(alert.change_pct).toFixed(2)}%</td>
+                    `;
+                    body.appendChild(row);
+                });
+            } catch (error) {
+                console.error('Error fetching alerts:', error);
+            }
+        }
+
+        setInterval(updateData, 2000);
+        setInterval(updateAlerts, 5000);
+        updateData();
+        updateAlerts();
+    </script>
+</body>
+</html>
