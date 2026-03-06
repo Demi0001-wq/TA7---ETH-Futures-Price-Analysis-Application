@@ -27,9 +27,13 @@ logger = logging.getLogger(__name__)
 # file for saving the state of the monitor
 STATE_FILE = "data/monitoring_state.json"
 
-# need a key for the encryption - keeping it simple for now
-CRYPT_KEY = Fernet.generate_key() 
-cipher_suite = Fernet(CRYPT_KEY)
+# Initialization of encryption suite
+if settings.ENCRYPTION_KEY:
+    cipher_suite = Fernet(settings.ENCRYPTION_KEY.encode())
+else:
+    # Fallback to ephemeral key if none provided (for development)
+    logger.warning("No ENCRYPTION_KEY found in environment. Using ephemeral key.")
+    cipher_suite = Fernet(Fernet.generate_key())
 
 # initializing our main components
 analyzer = PriceAnalyzer(
@@ -40,7 +44,10 @@ analyzer = PriceAnalyzer(
 alert_system = AlertSystem()
 
 async def price_update_callback(btc_price: float, eth_price: float, timestamp: datetime):
-    # this is what happens every time binance sends us a new price
+    """
+    Handles real-time price updates from the data streamer.
+    Calculates own movement and triggers alerts if thresholds are exceeded.
+    """
     alert_data = analyzer.update_price(btc_price, eth_price, timestamp)
     if alert_data:
         await alert_system.send_alert(alert_data)
@@ -50,7 +57,10 @@ async def price_update_callback(btc_price: float, eth_price: float, timestamp: d
         save_state()
 
 def save_state():
-    # dump current info to an encrypted file so we don't lose progress
+    """
+    Persists the current analysis state to an encrypted local file.
+    This allows the application to resume status after a restart.
+    """
     try:
         os.makedirs(os.path.dirname(STATE_FILE), exist_ok=True)
         state = {
@@ -96,8 +106,11 @@ app = FastAPI(
 
 @app.post("/token")
 async def login(form_data: OAuth2PasswordRequestForm = Depends()):
-    # basic login for the dashboard - hardcoded for now
-    if form_data.username == "admin" and form_data.password == "password":
+    """
+    Authenticates users based on environment-configured credentials.
+    Returns a JWT access token upon success.
+    """
+    if form_data.username == settings.ADMIN_USERNAME and form_data.password == settings.ADMIN_PASSWORD:
         access_token = create_access_token(data={"sub": form_data.username})
         return {"access_token": access_token, "token_type": "bearer"}
     raise HTTPException(status_code=400, detail="Wrong user or pass")

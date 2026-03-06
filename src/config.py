@@ -8,6 +8,10 @@ class Settings(BaseSettings):
     BINANCE_API_KEY: Optional[str] = None
     BINANCE_API_SECRET: Optional[str] = None
 
+    # Admin credentials for dashboard
+    ADMIN_USERNAME: str = "admin"
+    ADMIN_PASSWORD: str = "password"
+
     # SQLite database file path
     DATABASE_URL: str = "sqlite:///./data/alerts.db"
 
@@ -24,6 +28,9 @@ class Settings(BaseSettings):
     JWT_SECRET: str = "super_secret_key"
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+
+    # Key for encrypted state saving (generate with Fernet.generate_key().decode())
+    ENCRYPTION_KEY: Optional[str] = None
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
