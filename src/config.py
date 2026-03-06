@@ -7,6 +7,10 @@ class Settings(BaseSettings):
     BINANCE_WS_URL: str = "wss://fstream.binance.com/ws"
     BINANCE_API_KEY: Optional[str] = None
     BINANCE_API_SECRET: Optional[str] = None
+    
+    # Assets to monitor (e.g., BTCUSDT as base, ETHUSDT as target)
+    BASE_SYMBOL: str = "BTCUSDT"
+    TARGET_SYMBOL: str = "ETHUSDT"
 
     # Admin credentials for dashboard
     ADMIN_USERNAME: str = "admin"
